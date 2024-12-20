@@ -168,12 +168,17 @@ class ScrollSpy extends BaseComponent {
     }
 
     let maxIntersectionRatio = 0
+    let element = null
     for (const [key, val] of this._intersectionRatio.entries()) {
       if (val > maxIntersectionRatio) {
-        const element = targetElement(key)
-        this._activeTarget = element
+        element = targetElement(key)
         maxIntersectionRatio = val
       }
+    }
+
+    if (element !== null) {
+      this._process(element)
+      return
     }
 
     if (this._activeTarget !== null) {
@@ -208,6 +213,11 @@ class ScrollSpy extends BaseComponent {
     this._activateParents(target)
 
     target.classList.add(CLASS_NAME_ACTIVE)
+    if (target === this._activeTarget) {
+      return
+    }
+
+    this._activeTarget = target
     EventHandler.trigger(this._element, EVENT_ACTIVATE, { relatedTarget: target })
   }
 
