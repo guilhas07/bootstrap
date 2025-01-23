@@ -38,6 +38,7 @@ const SELECTOR_LINK_ITEMS = `${SELECTOR_NAV_LINKS}, ${SELECTOR_NAV_ITEMS} > ${SE
 const SELECTOR_DROPDOWN = '.dropdown'
 const SELECTOR_DROPDOWN_TOGGLE = '.dropdown-toggle'
 
+let numberEvents = 0
 const Default = {
   offset: null, // TODO: v6 @deprecated, keep it for backwards compatibility reasons
   rootMargin: '0px',
@@ -122,21 +123,30 @@ class ScrollSpy extends BaseComponent {
   }
 
   _maybeEnableSmoothScroll() {
-    if (!this._config.smoothScroll) {
-      return
-    }
+    // if (!this._config.smoothScroll) {
+    //   return
+    // }
+    // this._element.style.scrollBehavior = 'smooth'
+
+    const scrollBehavior = this._config.smoothScroll ? 'smooth' : 'auto'
 
     // unregister any previous listeners
     EventHandler.off(this._config.target, EVENT_CLICK)
 
     EventHandler.on(this._config.target, EVENT_CLICK, SELECTOR_TARGET_LINKS, event => {
+      console.log('previous number of events:', numberEvents)
+      numberEvents = 0
       const observableSection = this._observableSections.get(event.target.hash)
       if (observableSection) {
         event.preventDefault()
         const root = this._rootElement || window
-        const height = observableSection.offsetTop - this._element.offsetTop
+
+        // Sometimes scrolling to the section isn't enough to trigger a observation callback.
+        // Scroll to up to 2px to make sure it triggers.
+        const height = observableSection.offsetTop - this._element.offsetTop - 2
+        console.log('Scrolling:', height)
         if (root.scrollTo) {
-          root.scrollTo({ top: height, behavior: 'smooth' })
+          root.scrollTo({ top: height, behavior: scrollBehavior })
           return
         }
 
@@ -160,16 +170,15 @@ class ScrollSpy extends BaseComponent {
   _observerCallback(entries) {
     const targetElement = entryId => this._targetLinks.get(entryId)
 
-    // always remove active from `target` children before each cycle
-    this._clearActiveClass(this._config.target)
-
     for (const entry of entries) {
+      // console.log('Entry:', entry.intersectionRatio, entry.target.id)
       this._intersectionRatio.set(`#${entry.target.id}`, entry.intersectionRatio)
     }
 
     let maxIntersectionRatio = 0
     let element = null
     for (const [key, val] of this._intersectionRatio.entries()) {
+      // console.log('Key:', key, 'Val:', val, 'Max:', maxIntersectionRatio)
       if (val > maxIntersectionRatio) {
         element = targetElement(key)
         maxIntersectionRatio = val
@@ -178,11 +187,6 @@ class ScrollSpy extends BaseComponent {
 
     if (element !== null) {
       this._process(element)
-      return
-    }
-
-    if (this._activeTarget !== null) {
-      this._process(this._activeTarget)
     }
   }
 
@@ -191,6 +195,11 @@ class ScrollSpy extends BaseComponent {
     this._observableSections = new Map()
 
     const targetLinks = SelectorEngine.find(SELECTOR_TARGET_LINKS, this._config.target)
+    // const element = document.querySelector('[data-bs-target="#list-example"]')
+    // element.addEventListener('scroll', () => {
+    //   console.log('Srollinggggggg')
+    //   console.log('Current scroll position:', element.scrollTop)
+    // })
 
     for (const anchor of targetLinks) {
       // ensure that the anchor has an id and is not disabled
@@ -210,14 +219,15 @@ class ScrollSpy extends BaseComponent {
   }
 
   _process(target) {
-    this._activateParents(target)
-
-    target.classList.add(CLASS_NAME_ACTIVE)
     if (target === this._activeTarget) {
       return
     }
 
     this._activeTarget = target
+    this._clearActiveClass(this._config.target)
+    this._activateParents(target)
+    target.classList.add(CLASS_NAME_ACTIVE)
+
     EventHandler.trigger(this._element, EVENT_ACTIVATE, { relatedTarget: target })
   }
 
